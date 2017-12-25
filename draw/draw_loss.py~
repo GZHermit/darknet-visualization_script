@@ -1,0 +1,47 @@
+import subprocess
+
+import matplotlib.pyplot as plt
+import numpy as np
+import global_variables as gv
+
+cfg_fp = gv.get_value('cfg_fp')
+data_fp = gv.get_value('data_fp')
+cls_fp = gv.get_value('cls_fp')
+result_fp = gv.get_value('result_fp')
+weight_fp = gv.get_value('weight_fp')
+dataset_p = gv.get_value('dataset_p')
+train_fn = gv.get_value('train_fn')
+valid_fn = gv.get_value('valid_fn')
+
+
+def draw(args):
+    loss_fp = result_fp + '/' + args.key_name + 'loss.log'
+    mAP_fp = result_fp + '/' + args.key_name + 'mAP.log'
+
+    display = 10  # solver
+    test_interval = 100  # solver
+
+    train_output = subprocess.getoutput(
+        "cat " + loss_fp + " | grep 'avg,' | awk '{print $3}'")  # train loss
+
+    train_loss = train_output.split("\n")
+
+    _, ax1 = plt.subplots()
+
+    with open(cls_fp, 'r') as f:
+        content = f.readlines()
+        classes = [i.strip('\n') for i in content]
+    with open(mAP_fp, 'r') as f:
+        content = f.readlines()
+        mAP_value = [[float(i.split()[1]) for i in content]]
+    plt.table(cellText=mAP_value, colWidths=[0.18] * len(classes), colLabels=classes, loc='best')
+    # my_table = plt.table(cellText=mAP_value, colWidths=[0.1] * len(classes), rowLabels=classes, loc='best')
+    l1, = ax1.plot(display * np.arange(len(train_loss)), train_loss)
+
+    ax1.set_xlabel('Iteration')
+    ax1.set_ylabel('Train Loss')
+
+    # plt.legend([l1], [''], loc='upper right')
+    plt.title(args.key_name)
+    plt.show()
+    plt.imsave(result_fp + '/%s.jpg' % args.key_name)

@@ -1,0 +1,92 @@
+# coding:utf-8
+import os
+
+import commands
+import os
+import global_variables as gv
+from compute import compute_mAP
+from draw import draw_loss, draw_single_xml, draw_xmls, draw_mAP
+import filetools
+
+cfg_fp = gv.get_value('cfg_fp')
+data_fp = gv.get_value('data_fp')
+cls_fp = gv.get_value('cls_fp')
+result_p = gv.get_value('result_p')
+backup_p = gv.get_value('backup_p')
+weight_fp = gv.get_value('weight_fp')
+dataset_p = gv.get_value('dataset_p')
+train_fn = gv.get_value('train_fn')
+valid_fn = gv.get_value('valid_fn')
+key_name = gv.get_value('key_name')
+video_fp = gv.get_value('video_fp')
+
+def train(args):
+    log_file = result_p + '/cache/avgloss.log'
+    cmd = 'cd ' + args.darknet_p + ' && ' \
+          + args.darknet_p+'/darknet detector train ' + data_fp + ' ' + cfg_fp + ' ' + weight_fp + ' -gpus ' + args.gpus
+    #commands.getoutput('script -a ' + log_file + ' -c ' + cmd)
+    os.system('script -a ' + log_file + ' -c ' + cmd)
+
+
+def valid(args):
+    print("#------Start to valid process!------#")
+    if 'test' not in args.cfg_fn:
+        print("Check your .cfg file,maybe you use the train .cfg")
+        exit()
+    if args.valid_step is None:
+        weights = os.listdir(backup_p)
+    else:
+        weights = list(args.valid_step)
+    for weight in weights:
+        if 'final' in weight or 'backup' in weight:
+            continue
+        print("start to valid %s" % weight)
+        train_step = weight.strip('.weights').split('_')[-1]
+        filetools.check_makedir(result_p + '/' + train_step)
+        cmd = 'cd ' + args.darknet_p + ' && ' \
+              + './darknet detector valid ' + data_fp + ' ' + cfg_fp + ' ' \
+              + backup_p + '/' + weight + ' -gpus ' + args.gpus
+        commands.getoutput(cmd)
+        commands.getoutput('mv ' + result_p + '/*.txt ' + result_p + '/' + train_step + '/')
+        print("end to valid %s" % weight)
+
+
+def compute(args):
+    print("#------Start to compute process!------#")
+    annotations_p = dataset_p + '/Annotations/'
+    imgnames_fp = dataset_p + '/ImageSets/Main/' + valid_fn
+    if args.compute_step is None and args.valid_step is None:
+        train_steps = os.listdir(result_p + '/')
+    elif args.valid_step is not None:
+        train_steps = [args.valid_step]
+    elif args.compute_step is not None:
+        train_steps = [args.compute_step]
+    for train_step in train_steps:
+        if 'cache' in train_step:
+            continue
+        print("start to compute %s" % train_step)
+        mAP_result, classes = compute_mAP.compute(train_step, cls_fp, result_p, annotations_p, imgnames_fp)
+        log_file = result_p + '/' + train_step + '/' + 'mAP.log'
+        with open(log_file, 'w') as f:
+            f.writelines([classes[i] + ' ' + str(mAP_result[i]) + '\n' for i in range(len(mAP_result))])
+        print("end to compute %s" % train_step)
+
+
+def draw(args):
+    commands.getoutput('sed -i "s#electric bicycle"#"electric_bicycle#g" `grep "electric bicycle" -rl %s`'% result_p)
+    if args.draw_option == 'loss':
+        draw_loss.draw(args)
+    elif args.draw_option == 'single_xml':
+        draw_single_xml.draw(args)
+    elif args.draw_option == 'xmls':
+        draw_xmls.draw(args)
+    elif args.draw_option == 'mAP':
+        draw_mAP.draw()
+
+def demo(args):
+    log_file = result_p + '/cache/demo.log'
+    cmd = 'cd ' + args.darknet_p + ' && ' \
+          + args.darknet_p+'/darknet detector demo ' + data_fp + ' ' + cfg_fp + ' ' + weight_fp + ' -gpus ' + args.gpus \
+          + video_fp + ' -thresh ' + args.thresh
+    #commands.getoutput('script -a ' + log_file + ' -c ' + cmd)
+    os.system('script -a ' + log_file + ' -c ' + cmd)
