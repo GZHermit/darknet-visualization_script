@@ -8,8 +8,9 @@ If you want to use it,plear run the command:
 Of course you can also use the CMD order,like that:
 > python main_cmd.py
 
-python version:2.7.x
-wxPython version:3.0.2.0
+### python version:2.7.x
+
+### wxPython version:3.0.2.0
 
 Sometimes I will update the concrete operations.Welcome to leave your questions.
 
